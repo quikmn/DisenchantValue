@@ -5,6 +5,9 @@
 - Only one "Disenchant" line on tooltips: when EverlookDB Auctions shows its own, DisenchantValue no longer adds a second one with a different price. The breakdown (Shift) and your own results still show, right under it.
 - Auctionator is no longer required. Prices come from EverlookDB Auctions' scans first, then Auctionator's; either one is enough.
 - The chat line after each disenchant is now off by default (and switched off once for everyone who had it from v0.1.0). Turn it back on with `/dv announce on` or in the window.
+- The chat line after a disenchant now names every material ("2x Strange Dust") instead of "item 10940" when the game hadn't loaded it yet.
+- Disenchanting an item the game hadn't loaded yet now logs its type and quality too, so it counts for its item-level bracket on tooltips.
+- Fixed: opening a crate or bag right after a disenchant could log it as a disenchant. Such entries are removed from your log.
 
 ## v0.1.0 (2026-11-19)
 

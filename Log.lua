@@ -23,18 +23,39 @@ local function IsDisenchant(spellID)
     return name ~= nil and name == deName
 end
 
+-- Item quality from the link's colour, for items the game hasn't cached yet.
+local QUALITY_BY_COLOR = { ["9d9d9d"] = 0, ffffff = 1, ["1eff00"] = 2, ["0070dd"] = 3, a335ee = 4, ff8000 = 5 }
+local function QualityFromLink(link)
+    local c = link:match("|c%x%x(%x%x%x%x%x%x)")
+    return c and QUALITY_BY_COLOR[c:lower()]
+end
+
+-- What we know about an item: class from GetItemInfoInstant (always there), quality from the link's colour when the
+-- item isn't cached yet, so an uncached item is still logged with its class and quality.
 local function Describe(link)
     if not link then return end
-    local itemID = C_Item.GetItemInfoInstant(link)
+    local itemID, _, _, _, _, instantClass = C_Item.GetItemInfoInstant(link)
     local name, _, quality, _, _, _, _, _, _, _, _, classID = C_Item.GetItemInfo(link)
     local ilvl = (C_Item.GetDetailedItemLevelInfo or GetDetailedItemLevelInfo)(link)
-    return { link = link, itemID = itemID, name = name, quality = quality, classID = classID, ilvl = ilvl }
+    return {
+        link = link, itemID = itemID, name = name or link:match("|h%[(.-)%]|h"),
+        quality = quality or QualityFromLink(link), classID = classID or instantClass, ilvl = ilvl,
+    }
 end
+
+-- Only weapons and armour of uncommon to epic quality can be disenchanted. Unknown (nil) counts as possible.
+local function CanDisenchant(item)
+    if item.classID ~= nil and item.classID ~= 2 and item.classID ~= 4 then return false end
+    if item.quality ~= nil and (item.quality < 2 or item.quality > 4) then return false end
+    return true
+end
+DV.CanDisenchant = CanDisenchant
 
 -- Primary: the bag slot clicked while the Disenchant cursor is up.
 hooksecurefunc(C_Container, "UseContainerItem", function(bag, slot)
     if SpellIsTargeting and SpellIsTargeting() then
-        pending = Describe(C_Container.GetContainerItemLink(bag, slot))
+        local item = Describe(C_Container.GetContainerItemLink(bag, slot))
+        pending = item and CanDisenchant(item) and item or nil
     end
 end)
 
@@ -51,7 +72,38 @@ local function FindInBags(itemName)
     end
 end
 
+-- The chat line, once every material has a name: from the game's cache or the bundled names at once, otherwise
+-- after the game has loaded the item (5 seconds at most; then "item 12345" stands in).
+local function Announce(link, mats)
+    local waiting = {}
+    for matID in pairs(mats) do
+        if not (C_Item.GetItemInfo(matID) or DisenchantValueData.DisenchantingItemName[matID]) then waiting[#waiting + 1] = matID end
+    end
+    local said = false
+    local function say()
+        if said then return end
+        said = true
+        print(("|cffa335eeDisenchantValue|r: %s -> %s"):format(link, DV.MatsText(mats)))
+    end
+    if #waiting == 0 or not (Item and Item.CreateFromItemID) then say() return end
+    local left = #waiting
+    for _, matID in ipairs(waiting) do
+        Item:CreateFromItemID(matID):ContinueOnItemLoad(function()
+            left = left - 1
+            if left == 0 then say() end
+        end)
+    end
+    C_Timer.After(5, say)
+end
+
 local function Record(item, mats)
+    -- by now the game has usually cached the item: fill in what was missing when the cast started
+    local fresh = Describe(item.link)
+    if fresh then
+        for k, v in pairs(fresh) do if item[k] == nil then item[k] = v end end
+    end
+    if not CanDisenchant(item) then return end -- a crate or bag opened right after the cast, not a disenchant
+
     local db = DisenchantValueDB
     local char = UnitName("player") .. "-" .. (GetNormalizedRealmName() or GetRealmName() or "?")
 
@@ -63,7 +115,6 @@ local function Record(item, mats)
     entry.name, entry.ilvl, entry.quality, entry.classID = item.name, item.ilvl, item.quality, item.classID
     entry.count = entry.count + 1
 
-    local parts = {}
     for matID, n in pairs(mats) do
         local m = entry.mats[matID]
         if not m then
@@ -73,15 +124,12 @@ local function Record(item, mats)
         m.total = m.total + n
         m.hits = m.hits + 1
         m.qty[n] = (m.qty[n] or 0) + 1
-        table.insert(parts, ("%dx %s"):format(n, C_Item.GetItemInfo(matID) or ("item " .. matID)))
     end
 
     table.insert(db.log, { t = time(), char = char, itemID = item.itemID, link = item.link, ilvl = item.ilvl, mats = mats })
     DV.TrimLog()
 
-    if db.announce ~= false then
-        print(("|cffa335eeDisenchantValue|r: %s -> %s"):format(item.link, #parts > 0 and table.concat(parts, ", ") or "nothing?"))
-    end
+    if db.announce == true then Announce(item.link, mats) end
 end
 
 local function ReadLoot()
@@ -179,7 +227,24 @@ function DV.InitDB()
     for k, v in pairs(DV.DEFAULTS) do
         if db[k] == nil then db[k] = v end
     end
+    DV.ForgetNonGear(db)
     return db
+end
+
+-- v0.1.0 could log an item that can't be disenchanted (a crate opened right after a cast). Those entries go.
+function DV.ForgetNonGear(db)
+    local gone
+    for itemID, entry in pairs(db.items) do
+        if not CanDisenchant(entry) then
+            gone = gone or {}
+            gone[itemID] = true
+            db.items[itemID] = nil
+        end
+    end
+    if not gone then return end
+    local kept = {}
+    for _, e in ipairs(db.log) do if not gone[e.itemID] then kept[#kept + 1] = e end end
+    db.log = kept
 end
 
 function DV.TrimLog()

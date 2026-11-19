@@ -134,6 +134,58 @@ step("a disenchant is logged and announced; your result shows on the tooltip", f
 	SlashCmdList.DISENCHANTVALUE("observed on")
 end)
 
+step("an uncached item is logged with its class and quality; a crate is not logged; uncached material names arrive late", function()
+	local realPrint = print
+	print = function(s) MOCK.log[#MOCK.log + 1] = s end
+	local GREEN = "|cff1eff00|Hitem:5555::::::::20:::::|h[Uncached Axe]|h|r"
+	local CRATE = "|cffffffff|Hitem:248682::::::::20:::::|h[Waylaid Crate]|h|r"
+	local info, instant, link = C_Item.GetItemInfo, C_Item.GetItemInfoInstant, C_Container.GetContainerItemLink
+	C_Item.GetItemInfo = function(x)
+		if x == GREEN or x == CRATE or x == 777777 then return nil end
+		return info(x)
+	end
+	C_Item.GetItemInfoInstant = function(x)
+		if x == GREEN then return 5555, "Weapon", "Axe", "", 0, 2, 0 end
+		if x == CRATE then return 248682, "Consumable", "Other", "", 0, 0, 0 end
+		return instant(x)
+	end
+	local loads = {}
+	Item = { CreateFromItemID = function(_, id) return { ContinueOnItemLoad = function(_, fn) loads[#loads + 1] = fn end } end }
+	local function disenchant(itemLink, matID)
+		C_Container.GetContainerItemLink = function() return itemLink end
+		MOCK.targeting = true
+		C_Container.UseContainerItem(0, 1)
+		MOCK.targeting = false
+		MOCK.Fire("UNIT_SPELLCAST_SENT", "player", "x", nil, 13262)
+		MOCK.Fire("UNIT_SPELLCAST_SUCCEEDED", "player", nil, 13262)
+		loot = { { matID, 2 } }
+		MOCK.Fire("LOOT_READY")
+		loot = {}
+	end
+	DisenchantValueDB.announce = true
+	MOCK.log = {}
+	disenchant(GREEN, 777777)
+	local e = DisenchantValueDB.items[5555]
+	check(e and e.classID == 2 and e.quality == 2 and e.name == "Uncached Axe", "uncached item: " .. tostring(e and e.classID) .. "/" .. tostring(e and e.quality))
+	check(#MOCK.log == 0 and #loads == 1, "chat line before the material had a name")
+	C_Item.GetItemInfo = function(x) if x == 777777 then return "Late Dust" end return info(x) end
+	loads[1]()
+	check(last():find("2x Late Dust", 1, true), "late name: " .. last())
+	C_Item.GetItemInfo = function(x) if x == CRATE then return nil end return info(x) end
+	disenchant(CRATE, 10940)
+	check(not DisenchantValueDB.items[248682], "a crate was logged as a disenchant")
+	-- old saved junk goes on load
+	DisenchantValueDB.items[248682] = { count = 1, classID = 0, quality = 1, mats = {} }
+	DisenchantValueDB.log[#DisenchantValueDB.log + 1] = { t = 1, char = "X-Y", itemID = 248682, mats = {} }
+	DisenchantValue.InitDB()
+	check(not DisenchantValueDB.items[248682] and DisenchantValueDB.items[5555], "junk entry kept")
+	for _, l in ipairs(DisenchantValueDB.log) do check(l.itemID ~= 248682, "junk log line kept") end
+	DisenchantValueDB.items[5555] = nil
+	C_Item.GetItemInfo, C_Item.GetItemInfoInstant, C_Container.GetContainerItemLink = info, instant, link
+	Item = nil
+	print = realPrint
+end)
+
 step("the log cap trims the oldest entries", function()
 	local db = DisenchantValueDB
 	for i = 1, 1500 do db.log[#db.log + 1] = { t = i, char = "X-Y", itemID = 1, mats = {} } end
