@@ -147,21 +147,21 @@ local function ObservedLine(t, which, obs)
     end
 end
 
-local function AddObserved(t, link, classID, rarity, itemLevel, entry)
-    if not DisenchantValue.Observed or not Opt("observed", true) then return end
-    local itemID = C_Item.GetItemInfoInstant(link)
-
-    local mine = DisenchantValue.Observed(function(id) return id == itemID end)
-    if mine then ObservedLine(t, "this item", mine) end
-
-    if entry then
-        local low, high = entry[KEYS.LOW], entry[KEYS.HIGH]
-        local bracket = DisenchantValue.Observed(function(_, e)
-            return e.classID == classID and e.quality == rarity and e.ilvl and e.ilvl >= low and e.ilvl <= high
-        end)
-        if bracket and (not mine or bracket.count > mine.count) then
-            ObservedLine(t, ("item level %d-%d"):format(low, high), bracket)
-        end
+-- info: Analyze(link). The sums are kept on info until a new disenchant is logged, so a tooltip refreshing
+-- several times a second doesn't go through the whole log each time.
+local function AddObserved(t, info)
+    if not DisenchantValue.ObservedFor or not Opt("observed", true) then return end
+    local obs = info.observed
+    if not obs or obs.generation ~= DisenchantValue.generation then
+        local entry = info.entry
+        local low, high = entry and entry[KEYS.LOW], entry and entry[KEYS.HIGH]
+        local mine, bracket = DisenchantValue.ObservedFor(info.itemID, info.classID, info.rarity, low, high)
+        obs = { generation = DisenchantValue.generation, mine = mine, bracket = bracket, low = low, high = high }
+        info.observed = obs
+    end
+    if obs.mine then ObservedLine(t, "this item", obs.mine) end
+    if obs.bracket and (not obs.mine or obs.bracket.count > obs.mine.count) then
+        ObservedLine(t, ("item level %d-%d"):format(obs.low, obs.high), obs.bracket)
     end
 end
 
@@ -263,5 +263,5 @@ Tip:Register({ id = "DisenchantValue.observed", kind = "item", order = Tip.ORDER
     if not link or not Opt("tooltip", true) then return end
     local info = Analyze(link)
     if not info then return end
-    AddObserved(t, link, info.classID, info.rarity, info.itemLevel, info.entry)
+    AddObserved(t, info)
 end })

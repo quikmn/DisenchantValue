@@ -186,6 +186,18 @@ step("an uncached item is logged with its class and quality; a crate is not logg
 	print = realPrint
 end)
 
+step("tooltip refreshes go through the logged results once, and again only after a new disenchant", function()
+	local real, calls = DisenchantValue.ObservedFor, 0
+	DisenchantValue.ObservedFor = function(...) calls = calls + 1; return real(...) end
+	tooltip(false); tooltip(false); tooltip(true)
+	check(calls <= 1, "summed " .. calls .. " times for one item")
+	local before = calls
+	DisenchantValue.Changed()
+	tooltip(false)
+	check(calls == before + 1, "not summed again after a change")
+	DisenchantValue.ObservedFor = real
+end)
+
 step("the log cap trims the oldest entries", function()
 	local db = DisenchantValueDB
 	for i = 1, 1500 do db.log[#db.log + 1] = { t = i, char = "X-Y", itemID = 1, mats = {} } end

@@ -126,6 +126,7 @@ local function Record(item, mats)
         m.qty[n] = (m.qty[n] or 0) + 1
     end
 
+    DV.Changed()
     table.insert(db.log, { t = time(), char = char, itemID = item.itemID, link = item.link, ilvl = item.ilvl, mats = mats })
     DV.TrimLog()
 
@@ -188,23 +189,35 @@ f:SetScript("OnEvent", function(_, event, ...)
     end
 end)
 
--- Aggregate observations for a set of item IDs into { count, mats = { [matID] = { total, hits } } }.
-function DV.Observed(filter)
+-- Aggregate observations into { count, mats = { [matID] = { total, hits } } }; nil when there are none.
+local function Add(out, entry)
+    out.count = out.count + entry.count
+    for matID, m in pairs(entry.mats) do
+        local o = out.mats[matID] or { total = 0, hits = 0 }
+        o.total, o.hits = o.total + m.total, o.hits + m.hits
+        out.mats[matID] = o
+    end
+end
+
+-- For a tooltip, in one pass over the items: this item's results, and its class/quality/item-level bracket's
+-- (low..high; nil = no bracket).
+function DV.ObservedFor(itemID, classID, quality, low, high)
     local db = DisenchantValueDB
     if not db then return end
-    local out = { count = 0, mats = {} }
-    for itemID, entry in pairs(db.items) do
-        if filter(itemID, entry) then
-            out.count = out.count + entry.count
-            for matID, m in pairs(entry.mats) do
-                local o = out.mats[matID] or { total = 0, hits = 0 }
-                o.total, o.hits = o.total + m.total, o.hits + m.hits
-                out.mats[matID] = o
-            end
+    local mine, bracket = { count = 0, mats = {} }, { count = 0, mats = {} }
+    for id, entry in pairs(db.items) do
+        if id == itemID then Add(mine, entry) end
+        if low and entry.classID == classID and entry.quality == quality and entry.ilvl
+            and entry.ilvl >= low and entry.ilvl <= high then
+            Add(bracket, entry)
         end
     end
-    return out.count > 0 and out or nil
+    return mine.count > 0 and mine or nil, bracket.count > 0 and bracket or nil
 end
+
+-- Goes up whenever the logged results change, so tooltips can keep their sums until then.
+DV.generation = 0
+function DV.Changed() DV.generation = DV.generation + 1 end
 
 DV.DEFAULTS = {
     announce = false,      -- chat line after each disenchant (off by default since version 2 of the saved data)
@@ -228,6 +241,7 @@ function DV.InitDB()
         if db[k] == nil then db[k] = v end
     end
     DV.ForgetNonGear(db)
+    DV.Changed()
     return db
 end
 

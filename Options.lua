@@ -142,6 +142,7 @@ app:Section("options", "Options", function(stack)
         { label = "Forget every disenchant", width = 220, confirm = true, onClick = function()
             local d = db()
             d.items, d.log = {}, {}
+            DV.Changed()
             app:Refresh()
             app:Print("the log is empty.")
         end, desc = "Empties the log and the per-item results on every character. Can't be undone.",

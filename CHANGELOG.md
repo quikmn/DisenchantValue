@@ -9,6 +9,7 @@
 - Disenchanting an item the game hadn't loaded yet now logs its type and quality too, so it counts for its item-level bracket on tooltips.
 - Fixed: opening a crate or bag right after a disenchant could log it as a disenchant. Such entries are removed from your log.
 - Without any auction prices, the "no prices, scan the auction house" hint now shows on one item per session instead of on every green item.
+- Item tooltips do less work: your own results are added up once per item instead of on every tooltip refresh.
 
 ## v0.1.0 (2026-11-19)
 
