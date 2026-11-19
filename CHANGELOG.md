@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.1.0 (2026-11-19)
 
 - New disenchant odds from classic-db, the open CMaNGOS Classic database. Shields and off-hand items now count as weapons (more essences, less dust), uncommon weapons of item level 21-30 give Lesser Astral and Greater Astral Essence, rares from item level 5 (WoW Forever's new low-level rares) give Small Glimmering Shards, and the price cap for lesser essences (a third of the greater one) now works for every Classic essence. Odds for Outland-level items are gone.
 - Settings: an AI help button copies a description of every setting for an AI assistant, and `/dv apply` runs the commands it gives back.
