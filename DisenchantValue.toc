@@ -1,0 +1,21 @@
+## Interface: 16001
+## Title: DisenchantValue
+## Notes: Shows the estimated auction value of what an item disenchants into, on its tooltip. Odds from classic-db, prices from Auctionator scans.
+## Author: quikmn
+## Version: 0.1.0
+## Dependencies: Auctionator
+## SavedVariables: DisenchantValueDB
+## X-License: GPL-3.0
+## IconTexture: Interface\Icons\INV_Enchant_DustStrange
+
+Libs\LibStub\LibStub.lua
+Libs\EverlookUI\EverlookUI.lua
+Libs\EverlookUI\EverlookTooltip.lua
+Namespace.lua
+Data\DisenchantingMaterials.lua
+Data\DisenchantingMaterialMapping.lua
+Data\DisenchantingItemNames.lua
+Data\DisenchantingProbabilities.lua
+Log.lua
+DisenchantValue.lua
+Options.lua

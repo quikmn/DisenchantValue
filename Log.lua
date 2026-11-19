@@ -1,0 +1,215 @@
+-- Records every disenchant on every character into one account-wide DB (DisenchantValueDB).
+--
+-- DisenchantValueDB = {
+--   version = 1,
+--   items = { [itemID] = { name, ilvl, quality, classID, count, mats = { [matID] = { total, hits, qty = { [n] = times } } } } },
+--   log   = { { t, char, itemID, link, ilvl, mats = { [matID] = n } }, ... }   -- newest last, capped
+-- }
+
+local DV = DisenchantValue
+local DISENCHANT_SPELL = 13262
+local LOG_CAP = 10000 -- default; the "Disenchants kept in the log" option (db.logCap) overrides it
+local LOOT_WINDOW = 5 -- seconds between the cast finishing and the loot window
+
+local pending      -- item being disenchanted: { link, itemID, ilvl, quality, classID }
+local awaitingLoot -- pending item whose cast has succeeded, waiting for the loot window
+
+local function IsDisenchant(spellID)
+    if spellID == DISENCHANT_SPELL then return true end
+    local name = (C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(spellID))
+        or (GetSpellInfo and GetSpellInfo(spellID))
+    local deName = (C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(DISENCHANT_SPELL))
+        or (GetSpellInfo and GetSpellInfo(DISENCHANT_SPELL))
+    return name ~= nil and name == deName
+end
+
+local function Describe(link)
+    if not link then return end
+    local itemID = C_Item.GetItemInfoInstant(link)
+    local name, _, quality, _, _, _, _, _, _, _, _, classID = C_Item.GetItemInfo(link)
+    local ilvl = (C_Item.GetDetailedItemLevelInfo or GetDetailedItemLevelInfo)(link)
+    return { link = link, itemID = itemID, name = name, quality = quality, classID = classID, ilvl = ilvl }
+end
+
+-- Primary: the bag slot clicked while the Disenchant cursor is up.
+hooksecurefunc(C_Container, "UseContainerItem", function(bag, slot)
+    if SpellIsTargeting and SpellIsTargeting() then
+        pending = Describe(C_Container.GetContainerItemLink(bag, slot))
+    end
+end)
+
+-- Fallback: UNIT_SPELLCAST_SENT carries the target's name; find it in the bags.
+local function FindInBags(itemName)
+    if not itemName or itemName == "" then return end
+    for bag = 0, (NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS or 4) do
+        for slot = 1, C_Container.GetContainerNumSlots(bag) do
+            local link = C_Container.GetContainerItemLink(bag, slot)
+            if link and C_Item.GetItemInfo(link) == itemName then
+                return link
+            end
+        end
+    end
+end
+
+local function Record(item, mats)
+    local db = DisenchantValueDB
+    local char = UnitName("player") .. "-" .. (GetNormalizedRealmName() or GetRealmName() or "?")
+
+    local entry = db.items[item.itemID]
+    if not entry then
+        entry = { count = 0, mats = {} }
+        db.items[item.itemID] = entry
+    end
+    entry.name, entry.ilvl, entry.quality, entry.classID = item.name, item.ilvl, item.quality, item.classID
+    entry.count = entry.count + 1
+
+    local parts = {}
+    for matID, n in pairs(mats) do
+        local m = entry.mats[matID]
+        if not m then
+            m = { total = 0, hits = 0, qty = {} }
+            entry.mats[matID] = m
+        end
+        m.total = m.total + n
+        m.hits = m.hits + 1
+        m.qty[n] = (m.qty[n] or 0) + 1
+        table.insert(parts, ("%dx %s"):format(n, C_Item.GetItemInfo(matID) or ("item " .. matID)))
+    end
+
+    table.insert(db.log, { t = time(), char = char, itemID = item.itemID, link = item.link, ilvl = item.ilvl, mats = mats })
+    DV.TrimLog()
+
+    if db.announce ~= false then
+        print(("|cffa335eeDisenchantValue|r: %s -> %s"):format(item.link, #parts > 0 and table.concat(parts, ", ") or "nothing?"))
+    end
+end
+
+local function ReadLoot()
+    if not awaitingLoot or GetTime() - awaitingLoot.at > LOOT_WINDOW then
+        awaitingLoot = nil
+        return
+    end
+    local item = awaitingLoot.item
+    awaitingLoot = nil
+
+    local mats = {}
+    for i = 1, GetNumLootItems() do
+        local link = GetLootSlotLink(i)
+        local itemID = link and C_Item.GetItemInfoInstant(link)
+        if itemID then
+            local _, _, quantity = GetLootSlotInfo(i)
+            mats[itemID] = (mats[itemID] or 0) + (quantity or 1)
+        end
+    end
+    if next(mats) then
+        Record(item, mats)
+    end
+end
+
+local f = CreateFrame("Frame")
+f:RegisterEvent("ADDON_LOADED")
+f:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player")
+f:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+f:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player")
+f:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
+f:RegisterEvent("LOOT_READY")
+f:RegisterEvent("LOOT_OPENED")
+f:SetScript("OnEvent", function(_, event, ...)
+    if event == "ADDON_LOADED" then
+        if ... ~= "DisenchantValue" then return end
+        DV.InitDB()
+    elseif event == "UNIT_SPELLCAST_SENT" then
+        local _, target, _, spellID = ...
+        if IsDisenchant(spellID) then
+            local fromBags = FindInBags(target)
+            if not pending or (fromBags and pending.name ~= target) then
+                pending = Describe(fromBags)
+            end
+        end
+    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+        local _, _, spellID = ...
+        if IsDisenchant(spellID) and pending and pending.itemID then
+            awaitingLoot = { item = pending, at = GetTime() }
+            pending = nil
+        end
+    elseif event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_INTERRUPTED" then
+        local _, _, spellID = ...
+        if IsDisenchant(spellID) then pending = nil end
+    else -- LOOT_READY / LOOT_OPENED: whichever comes first reads the window
+        ReadLoot()
+    end
+end)
+
+-- Aggregate observations for a set of item IDs into { count, mats = { [matID] = { total, hits } } }.
+function DV.Observed(filter)
+    local db = DisenchantValueDB
+    if not db then return end
+    local out = { count = 0, mats = {} }
+    for itemID, entry in pairs(db.items) do
+        if filter(itemID, entry) then
+            out.count = out.count + entry.count
+            for matID, m in pairs(entry.mats) do
+                local o = out.mats[matID] or { total = 0, hits = 0 }
+                o.total, o.hits = o.total + m.total, o.hits + m.hits
+                out.mats[matID] = o
+            end
+        end
+    end
+    return out.count > 0 and out or nil
+end
+
+DV.DEFAULTS = {
+    announce = true,       -- chat line after each disenchant (older versions: nil meant on, false off)
+    tooltip = true,        -- "Disenchant ~Xg" on item tooltips
+    breakdown = "shift",   -- the per-material lines: "shift" (hold Shift), "always" or "never"
+    observed = true,       -- your own logged results on tooltips
+    essenceCap = true,     -- price a lesser essence at no more than a third of the greater one
+    logCap = LOG_CAP,      -- disenchants kept in the log (the per-item totals are kept forever)
+}
+
+-- Set up DisenchantValueDB: data tables, then any missing setting from DV.DEFAULTS (saved ones are kept).
+function DV.InitDB()
+    local db = type(DisenchantValueDB) == "table" and DisenchantValueDB or {}
+    DisenchantValueDB = db
+    db.version = 1
+    db.items = db.items or {}
+    db.log = db.log or {}
+    for k, v in pairs(DV.DEFAULTS) do
+        if db[k] == nil then db[k] = v end
+    end
+    return db
+end
+
+function DV.TrimLog()
+    local db = DisenchantValueDB
+    local cap = db.logCap or LOG_CAP
+    local log = db.log
+    local n = #log
+    local over = n - cap
+    if over > 0 then
+        -- shift once instead of table.remove(log, 1) per entry (that is slow on a 50,000-entry log)
+        for i = 1, n - over do log[i] = log[i + over] end
+        for i = n - over + 1, n do log[i] = nil end
+    end
+end
+
+-- "3x Strange Dust, 1x Lesser Magic Essence"
+function DV.MatsText(mats)
+    local parts = {}
+    for matID, n in pairs(mats or {}) do
+        parts[#parts + 1] = n .. "x " .. (C_Item.GetItemInfo(matID) or DisenchantValueData.DisenchantingItemName[matID] or ("item " .. matID))
+    end
+    table.sort(parts)
+    return table.concat(parts, ", ")
+end
+
+-- Totals for the window and /dv summary: disenchants, different items, characters.
+function DV.Summary()
+    local db = DisenchantValueDB
+    local items, total, chars, nChars = 0, 0, {}, 0
+    for _, entry in pairs(db.items) do items, total = items + 1, total + entry.count end
+    for _, e in ipairs(db.log) do
+        if not chars[e.char] then chars[e.char] = true; nChars = nChars + 1 end
+    end
+    return total, items, nChars
+end
