@@ -18,32 +18,64 @@ local function ShowBreakdown()
     return mode == "always" or (mode == "shift" and IsShiftKeyDown())
 end
 
-local function GetPrice(itemID)
-    if not (Auctionator and Auctionator.API and Auctionator.API.v1) then return nil end
-    return Auctionator.API.v1.GetAuctionPriceByItemID("DisenchantValue", itemID)
+-- Prices come from EverlookDB Auctions' scans when it is loaded and knows the item, else from Auctionator's.
+-- Both are optional (## OptionalDeps); with neither, the tooltip says "no prices".
+local function EDBA()
+    local api = EverlookDBAuctionsAPI
+    if api and (tonumber(api.version) or 0) >= 1 then return api end
+end
+
+local function AuctionatorAPI()
+    return Auctionator and Auctionator.API and Auctionator.API.v1
 end
 
 -- Days since Auctionator last saw the item; false when it is older than Auctionator tracks (3 weeks).
-local function GetAge(itemID)
-    local api = Auctionator and Auctionator.API and Auctionator.API.v1
+local function AuctionatorAge(itemID)
+    local api = AuctionatorAPI()
     if not (api and api.GetAuctionAgeByItemID) then return nil end
     local ok, days = pcall(api.GetAuctionAgeByItemID, "DisenchantValue", itemID)
     if not ok then return nil end
     return days or false
 end
 
+-- One material: price in copper, age in days (nil = unknown, false = 3+ weeks), and where it came from.
+local function GetPrice(itemID)
+    local api = EDBA()
+    if api and api.price then
+        local ok, low, age = pcall(api.price, itemID)
+        if ok and low then return low, age and math.floor(age / 86400), "EverlookDB" end
+    end
+    local a = AuctionatorAPI()
+    if a and a.GetAuctionPriceByItemID then
+        local price = a.GetAuctionPriceByItemID("DisenchantValue", itemID)
+        if price then return price, AuctionatorAge(itemID), "Auctionator" end
+    end
+end
+
 -- Lesser essences can be combined 3:1 into greater ones, so a lesser is worth at least greater/3.
--- Returns the price and the item whose scan it came from.
+-- Returns the price, its age and its source (those of the greater essence when the cap applies).
 local function GetMatPrice(itemID)
-    local price = GetPrice(itemID)
+    local price, age, source = GetPrice(itemID)
     local greater = Opt("essenceCap", true) and DATA.DisenchantingMatMapping[itemID]
     if greater then
-        local gp = GetPrice(greater)
+        local gp, gage, gsource = GetPrice(greater)
         if price and gp and price * 3 > gp then
-            return math.floor(gp / 3), greater
+            return math.floor(gp / 3), gage, gsource
         end
     end
-    return price, itemID
+    return price, age, source
+end
+
+-- EverlookDB Auctions draws its own "Disenchant" line whenever it can price the item (its "disenchant" tooltip
+-- setting, on unless turned off). Then this addon adds no second one: only the breakdown and your own results.
+local function EDBAShowsLine(link)
+    local api = EDBA()
+    if not (api and api.disenchant) then return false end
+    local saved = EverlookAuctionsDB
+    local tip = type(saved) == "table" and saved.tip
+    if type(tip) == "table" and tip.disenchant == false then return false end
+    local ok, value = pcall(api.disenchant, link)
+    return ok and value ~= nil
 end
 
 -- The oldest scan behind a price, as words: "scanned today", "scanned 3 days ago".
@@ -133,29 +165,45 @@ local function AddObserved(t, link, classID, rarity, itemLevel, entry)
     end
 end
 
--- t: the shared layout's line collector. Your own results are a separate contribution (Tip.ORDER.disenchantOwn), so
--- they come after every addon's value lines.
+-- What the tooltip contributions need to know about an item, worked out once per link: every contribution (and
+-- every tooltip refresh of the same item) reuses it. nil when the item can't be disenchanted.
+local cache = { link = nil, info = nil }
+local function Analyze(link)
+    if cache.link == link and cache.info then return cache.info end
+    local _, _, rarity, _, _, _, _, _, equipLoc, _, _, classID, subclassID = C_Item.GetItemInfo(link)
+    if not rarity or not IsDisenchantable(classID, rarity) then return nil end -- not cached yet: ask again next time
+    local itemLevel = (C_Item.GetDetailedItemLevelInfo or GetDetailedItemLevelInfo)(link)
+    local info = {
+        itemID = C_Item.GetItemInfoInstant(link), classID = classID, rarity = rarity, itemLevel = itemLevel,
+        entry = itemLevel and FindEntry(classID, rarity, itemLevel, subclassID, equipLoc),
+    }
+    cache.link, cache.info = link, info
+    return info
+end
+
+-- The "Disenchant" value line (t: the shared layout's line collector). Skipped when EverlookDB Auctions shows its own.
 local function AddLines(t, link)
     if not link or not Opt("tooltip", true) then return end
-    local _, _, rarity, _, _, _, _, _, equipLoc, _, _, classID, subclassID = C_Item.GetItemInfo(link)
-    if not rarity or not IsDisenchantable(classID, rarity) then return end
-
-    local itemLevel = (C_Item.GetDetailedItemLevelInfo or GetDetailedItemLevelInfo)(link)
-    local entry = itemLevel and FindEntry(classID, rarity, itemLevel, subclassID, equipLoc)
+    local info = Analyze(link)
+    if not info then return end
+    info.lineShown = false
+    if EDBAShowsLine(link) then info.lineShown = true return end
+    local entry = info.entry
     if not entry then
         t:Line("Disenchant", "no data", { note = "classic-db", stale = true })
         return
     end
 
     -- entry = { lowIlvl, highIlvl, pct, count, matID, pct, count, matID, ... }
-    local total, missing, oldest = 0, false, nil
+    local total, missing, oldest, sources, seen = 0, false, nil, {}, {}
     for i = 3, #entry, 3 do
         local pct, count, matID = entry[i], entry[i + 1], entry[i + 2]
         if pct > 0 then
-            local price, from = GetMatPrice(matID)
+            local price, age, source = GetMatPrice(matID)
             if price then
                 total = total + pct * count * price
-                oldest = Older(oldest, GetAge(from))
+                oldest = Older(oldest, age)
+                if not seen[source] then seen[source] = true; sources[#sources + 1] = source end
             else
                 missing = true
             end
@@ -165,21 +213,27 @@ local function AddLines(t, link)
 
     if total > 0 then
         t:Line("Disenchant", Money(total, { approx = true }), {
-            note = Tip.Join("Auctionator", missing and "partial" or nil, AgeText(oldest)),
+            note = Tip.Join(table.concat(sources, " + "), missing and "partial" or nil, AgeText(oldest)),
             stale = oldest == false or (oldest or 0) > 0,
         })
     else
-        t:Line("Disenchant", "no prices", { note = "scan the AH with Auctionator", stale = true })
+        t:Line("Disenchant", "no prices", { note = "scan the auction house with EverlookDB Auctions or Auctionator", stale = true })
     end
+    info.lineShown = true
+end
 
-    if ShowBreakdown() then
-        for i = 3, #entry, 3 do
-            local pct, count, matID = entry[i], entry[i + 1], entry[i + 2]
-            if pct > 0 then
-                local price = GetMatPrice(matID)
-                t:Detail(("%g%%  %gx %s"):format(math.floor(pct * 100) / 100, count, MatName(matID)),
-                    price and (Money(price) .. " each") or "?", { always = true })
-            end
+-- The per-material breakdown, right under whichever "Disenchant" line is shown (this addon's or EverlookDB Auctions').
+local function AddBreakdown(t, link)
+    if not link or not Opt("tooltip", true) or not ShowBreakdown() then return end
+    local info = Analyze(link)
+    local entry = info and info.lineShown and info.entry
+    if not entry then return end
+    for i = 3, #entry, 3 do
+        local pct, count, matID = entry[i], entry[i + 1], entry[i + 2]
+        if pct > 0 then
+            local price = GetMatPrice(matID)
+            t:Detail(("%g%%  %gx %s"):format(math.floor(pct * 100) / 100, count, MatName(matID)),
+                price and (Money(price) .. " each") or "?", { always = true })
         end
     end
 end
@@ -190,14 +244,18 @@ local function LinkOf(ctx)
     return ctx.link
 end
 
+-- Three contributions: the value line, then (after EverlookDB Auctions' line, which has the same order) the breakdown,
+-- and your own results after every addon's value lines (Tip.ORDER.disenchantOwn).
 Tip:Register({ id = "DisenchantValue.value", kind = "item", order = Tip.ORDER.disenchant, add = function(t, ctx)
     AddLines(t, LinkOf(ctx))
+end })
+Tip:Register({ id = "DisenchantValue.breakdown", kind = "item", order = Tip.ORDER.disenchant + 0.5, add = function(t, ctx)
+    AddBreakdown(t, LinkOf(ctx))
 end })
 Tip:Register({ id = "DisenchantValue.observed", kind = "item", order = Tip.ORDER.disenchantOwn, add = function(t, ctx)
     local link = LinkOf(ctx)
     if not link or not Opt("tooltip", true) then return end
-    local _, _, rarity, _, _, _, _, _, equipLoc, _, _, classID, subclassID = C_Item.GetItemInfo(link)
-    if not rarity or not IsDisenchantable(classID, rarity) then return end
-    local itemLevel = (C_Item.GetDetailedItemLevelInfo or GetDetailedItemLevelInfo)(link)
-    AddObserved(t, link, classID, rarity, itemLevel, itemLevel and FindEntry(classID, rarity, itemLevel, subclassID, equipLoc))
+    local info = Analyze(link)
+    if not info then return end
+    AddObserved(t, link, info.classID, info.rarity, info.itemLevel, info.entry)
 end })

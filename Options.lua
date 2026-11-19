@@ -8,7 +8,7 @@ local app = UI:NewApp({
     name = "DisenchantValue",
     addon = ADDON,
     slash = "/dv",
-    tagline = "What an item disenchants into, priced from your Auctionator scans, plus a log of every disenchant you do.",
+    tagline = "What an item disenchants into, priced from your EverlookDB Auctions or Auctionator scans, plus a log of every disenchant you do.",
     accent = { 0.639, 0.208, 0.933 }, -- epic purple, as in its chat lines
     position = function() return DisenchantValueDB end,
     onHide = function() DV.TrimLog() end,
@@ -53,9 +53,14 @@ app:Setting({
     after = function() if not app:IsShown() then DV.TrimLog() end end, -- from chat: now; from the window: on close
 })
 
-local function AuctionatorStatus()
-    if Auctionator and Auctionator.API and Auctionator.API.v1 then return "|cff62cf88found|r: prices come from its scans." end
-    return "|cffef5d5dnot loaded|r: the tooltip can't price anything without it."
+-- Where prices come from: EverlookDB Auctions first, then Auctionator; either is enough.
+local function PriceStatus()
+    local edba = EverlookDBAuctionsAPI ~= nil
+    local auc = Auctionator and Auctionator.API and Auctionator.API.v1 and true
+    if edba and auc then return "|cff62cf88EverlookDB Auctions and Auctionator|r: EverlookDB Auctions first, Auctionator for the rest." end
+    if edba then return "|cff62cf88EverlookDB Auctions|r: prices come from its scans." end
+    if auc then return "|cff62cf88Auctionator|r: prices come from its scans." end
+    return "|cffef5d5dnone loaded|r: install EverlookDB Auctions or Auctionator and scan the auction house."
 end
 
 local function Summary()
@@ -69,9 +74,9 @@ local function Recent(n)
     return out
 end
 
--- /dv status: the version, the totals and whether Auctionator is there (/dv summary still works).
+-- /dv status: the version, the totals and where prices come from (/dv summary still works).
 app:StatusLines(function()
-    return { Summary(), "Auctionator: " .. AuctionatorStatus() }
+    return { Summary(), "Prices: " .. PriceStatus() }
 end)
 app:Command("summary", "summary", "how much is logged", function()
     app:Print(Summary())
@@ -92,8 +97,8 @@ app:Command("quiet", "quiet", "switch the chat line after each disenchant on or 
 end).hidden = true
 
 app:Section("overview", "Overview", function(stack)
-    UI.Header(stack, "Overview", "Item tooltips get \"Disenchant ~Xg\": the classic disenchant odds times Auctionator's prices.")
-    UI.Stat(stack, "Auctionator", AuctionatorStatus)
+    UI.Header(stack, "Overview", "Item tooltips get \"Disenchant ~Xg\": the classic disenchant odds times auction house prices. With EverlookDB Auctions' own disenchant line on, that line is the one you see, with this addon's breakdown and your own results under it.")
+    UI.Stat(stack, "Prices", PriceStatus)
     UI.Stat(stack, "Logged", Summary)
     UI.Stat(stack, "Latest", function()
         local e = db().log[#db().log]

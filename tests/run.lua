@@ -236,6 +236,51 @@ step("shared layout: label left and money right, value before your own results, 
 	Tip:SetDetail("always")
 end)
 
+step("EverlookDB Auctions: its own Disenchant line wins (one line only); its prices come first; Auctionator optional", function()
+	local Tip = LibStub("EverlookTooltip-1")
+	local function strip(x) return (x:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
+	local function count(lines, word)
+		local n = 0
+		for _, line in ipairs(lines) do if strip(line[1]):find("^" .. word) then n = n + 1 end end
+		return n
+	end
+	-- a stand-in for EverlookDB Auctions: its API and its line at the same order
+	EverlookDBAuctionsAPI = { version = 1,
+		price = function(id) return 300, 2 * 86400 end,
+		disenchant = function(item) return 999, 0 end }
+	EverlookAuctionsDB = { tip = {} }
+	Tip:Register({ id = "EDBA.test", kind = "item", order = Tip.ORDER.disenchant, add = function(t)
+		if EverlookAuctionsDB.tip.disenchant ~= false and EverlookDBAuctionsAPI.disenchant(1) then t:Line("Disenchant", "EDBA") end
+	end })
+	local l = tooltip(true)
+	check(count(l, "Disenchant") == 1, "two Disenchant lines")
+	local at
+	for i, line in ipairs(l) do if line[2] == "EDBA" then at = i end end
+	check(at and l[at + 1] and strip(l[at + 1][1]):find("%%"), "breakdown not right under EverlookDB Auctions' line")
+	-- its line turned off: ours is back, priced from its scans
+	EverlookAuctionsDB.tip.disenchant = false
+	l = tooltip(false)
+	check(count(l, "Disenchant") == 1 and strip(l[1][1]):find("EverlookDB", 1, true) and strip(l[1][1]):find("2 days ago", 1, true), "our line with its prices: " .. strip(l[1][1]))
+	-- it has no prices: Auctionator's
+	EverlookDBAuctionsAPI.price = function() return nil end
+	EverlookDBAuctionsAPI.disenchant = function() return nil end
+	EverlookAuctionsDB.tip.disenchant = nil
+	l = tooltip(false)
+	check(count(l, "Disenchant") == 1 and strip(l[1][1]):find("Auctionator", 1, true), "Auctionator fallback: " .. strip(l[1][1]))
+	-- without Auctionator: EverlookDB alone is enough
+	local auc = Auctionator
+	Auctionator = nil
+	EverlookDBAuctionsAPI.price = function() return 50, 0 end
+	EverlookAuctionsDB.tip.disenchant = false
+	l = tooltip(false)
+	check(strip(l[1][1]):find("EverlookDB", 1, true) and not strip(l[1][2]):find("no prices", 1, true), "no Auctionator: " .. strip(l[1][1]))
+	Auctionator = auc
+	Tip:Unregister("EDBA.test")
+	EverlookDBAuctionsAPI, EverlookAuctionsDB = nil, nil
+	local toc = assert(io.open(ROOT .. "/" .. ADDON .. ".toc")):read("*a")
+	check(not toc:find("## Dependencies", 1, true) and toc:find("## OptionalDeps: Auctionator", 1, true), "Auctionator still required in the TOC")
+end)
+
 step("a secret item link adds nothing and raises no error", function()
 	local errs = #MOCK.errors
 	local l = tooltip(false, { hyperlink = MOCK.Secret(ITEM) })
