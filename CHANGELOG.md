@@ -4,6 +4,7 @@
 
 - Only one "Disenchant" line on tooltips: when EverlookDB Auctions shows its own, DisenchantValue no longer adds a second one with a different price. The breakdown (Shift) and your own results still show, right under it.
 - Auctionator is no longer required. Prices come from EverlookDB Auctions' scans first, then Auctionator's; either one is enough.
+- The chat line after each disenchant is now off by default (and switched off once for everyone who had it from v0.1.0). Turn it back on with `/dv announce on` or in the window.
 
 ## v0.1.0 (2026-11-19)
 

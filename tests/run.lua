@@ -79,11 +79,20 @@ step("load TOC files; old saved data keeps its values and gets the new settings"
 	check(postCall, "tooltip hook missing")
 end)
 
-step("a fresh install gets every default, with the chat line on", function()
+step("a fresh install gets every default, with the chat line off; v0.1.0's saved 'on' becomes off once", function()
 	local keep = DisenchantValueDB
 	DisenchantValueDB = nil
 	DisenchantValue.InitDB()
-	check(DisenchantValueDB.announce == true and DisenchantValueDB.logCap == 10000 and #DisenchantValueDB.log == 0, "fresh defaults")
+	check(DisenchantValueDB.version == 2, "version")
+	DisenchantValueDB = { version = 1, announce = true }
+	DisenchantValue.InitDB()
+	check(DisenchantValueDB.announce == false, "v1 announce=true not migrated")
+	DisenchantValueDB.announce = true
+	DisenchantValue.InitDB()
+	check(DisenchantValueDB.announce == true, "a later choice of 'on' was undone")
+	DisenchantValueDB = nil
+	DisenchantValue.InitDB()
+	check(DisenchantValueDB.announce == false and DisenchantValueDB.logCap == 10000 and #DisenchantValueDB.log == 0, "fresh defaults")
 	DisenchantValueDB = keep
 end)
 

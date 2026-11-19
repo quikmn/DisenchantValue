@@ -1,7 +1,7 @@
 -- Records every disenchant on every character into one account-wide DB (DisenchantValueDB).
 --
 -- DisenchantValueDB = {
---   version = 1,
+--   version = 2,
 --   items = { [itemID] = { name, ilvl, quality, classID, count, mats = { [matID] = { total, hits, qty = { [n] = times } } } } },
 --   log   = { { t, char, itemID, link, ilvl, mats = { [matID] = n } }, ... }   -- newest last, capped
 -- }
@@ -159,7 +159,7 @@ function DV.Observed(filter)
 end
 
 DV.DEFAULTS = {
-    announce = true,       -- chat line after each disenchant (older versions: nil meant on, false off)
+    announce = false,      -- chat line after each disenchant (off by default since version 2 of the saved data)
     tooltip = true,        -- "Disenchant ~Xg" on item tooltips
     breakdown = "shift",   -- the per-material lines: "shift" (hold Shift), "always" or "never"
     observed = true,       -- your own logged results on tooltips
@@ -171,7 +171,9 @@ DV.DEFAULTS = {
 function DV.InitDB()
     local db = type(DisenchantValueDB) == "table" and DisenchantValueDB or {}
     DisenchantValueDB = db
-    db.version = 1
+    -- version 1 (v0.1.0) saved the chat line as on for everyone; turn it off once, as the new default
+    if db.version == 1 and db.announce == true then db.announce = false end
+    db.version = 2
     db.items = db.items or {}
     db.log = db.log or {}
     for k, v in pairs(DV.DEFAULTS) do
