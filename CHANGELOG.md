@@ -8,6 +8,7 @@
 - The chat line after a disenchant now names every material ("2x Strange Dust") instead of "item 10940" when the game hadn't loaded it yet.
 - Disenchanting an item the game hadn't loaded yet now logs its type and quality too, so it counts for its item-level bracket on tooltips.
 - Fixed: opening a crate or bag right after a disenchant could log it as a disenchant. Such entries are removed from your log.
+- Without any auction prices, the "no prices, scan the auction house" hint now shows on one item per session instead of on every green item.
 
 ## v0.1.0 (2026-11-19)
 

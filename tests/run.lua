@@ -342,6 +342,21 @@ step("EverlookDB Auctions: its own Disenchant line wins (one line only); its pri
 	check(not toc:find("## Dependencies", 1, true) and toc:find("## OptionalDeps: Auctionator", 1, true), "Auctionator still required in the TOC")
 end)
 
+step("'no prices' shows once a session, on the first item only", function()
+	local auc = Auctionator
+	Auctionator = nil
+	local function hasLine(lines) for _, l in ipairs(lines) do if l[1]:find("Disenchant", 1, true) and not l[1]:find("Your", 1, true) then return l end end end
+	local first = hasLine(tooltip(false))
+	check(first and first[2]:find("no prices", 1, true), "no hint on the first item")
+	check(hasLine(tooltip(true)), "hint gone on the same item's refresh")
+	local OTHER = "|cff1eff00|Hitem:4321::::::::20:::::|h[Other Sword]|h|r"
+	local info = C_Item.GetItemInfo
+	C_Item.GetItemInfo = function(x) if x == OTHER then return "Other Sword", OTHER, 2, 20, 15, "Weapon", "One-Handed Swords", 1, "", 0, 0, 2 end return info(x) end
+	check(not hasLine(tooltip(true, { hyperlink = OTHER })), "hint on a second item")
+	C_Item.GetItemInfo = info
+	Auctionator = auc
+end)
+
 step("a secret item link adds nothing and raises no error", function()
 	local errs = #MOCK.errors
 	local l = tooltip(false, { hyperlink = MOCK.Secret(ITEM) })

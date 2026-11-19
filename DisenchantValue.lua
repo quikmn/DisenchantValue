@@ -181,6 +181,8 @@ local function Analyze(link)
     return info
 end
 
+local hintItem -- the one item this session that showed the "no prices" hint
+
 -- The "Disenchant" value line (t: the shared layout's line collector). Skipped when EverlookDB Auctions shows its own.
 local function AddLines(t, link)
     if not link or not Opt("tooltip", true) then return end
@@ -216,8 +218,12 @@ local function AddLines(t, link)
             note = Tip.Join(table.concat(sources, " + "), missing and "partial" or nil, AgeText(oldest)),
             stale = oldest == false or (oldest or 0) > 0,
         })
-    else
+    elseif not hintItem or hintItem == info.itemID then
+        -- no prices at all: say how to get them once a session (on the first such item), not on every green item
+        hintItem = info.itemID
         t:Line("Disenchant", "no prices", { note = "scan the auction house with EverlookDB Auctions or Auctionator", stale = true })
+    else
+        return
     end
     info.lineShown = true
 end
