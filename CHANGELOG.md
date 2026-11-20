@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.0 (2026-11-20)
 - Settings window: switches, buttons and sliders use a softer shade of the accent colour, an on switch has a dark knob so it stands out, and boxes have cleaner rounded edges.
 
 - Only one "Disenchant" line on tooltips: when EverlookDB Auctions shows its own, DisenchantValue no longer adds a second one with a different price. The breakdown (Shift) and your own results still show, right under it.

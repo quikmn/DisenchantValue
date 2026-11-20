@@ -2,7 +2,7 @@
 ## Title: DisenchantValue
 ## Notes: Shows the estimated auction value of what an item disenchants into, on its tooltip. Odds from classic-db, prices from EverlookDB Auctions or Auctionator scans.
 ## Author: quikmn
-## Version: 0.1.0
+## Version: 0.2.0
 ## OptionalDeps: Auctionator, EverlookDBAuctions
 ## SavedVariables: DisenchantValueDB
 ## X-License: GPL-3.0
