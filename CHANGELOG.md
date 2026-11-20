@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Settings window: switches, buttons and sliders use a softer shade of the accent colour, an on switch has a dark knob so it stands out, and boxes have cleaner rounded edges.
 
 - Only one "Disenchant" line on tooltips: when EverlookDB Auctions shows its own, DisenchantValue no longer adds a second one with a different price. The breakdown (Shift) and your own results still show, right under it.
 - Auctionator is no longer required. Prices come from EverlookDB Auctions' scans first, then Auctionator's; either one is enough.
