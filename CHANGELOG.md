@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.1 (2026-11-21)
 - Your disenchant log names the character's realm again after today's WoW Forever client update, which stopped telling addons the realm's name (entries read "Name-" since then). Those entries are kept as they are, and /dv status counts them.
 
 ## v0.2.0 (2026-11-20)
