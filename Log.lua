@@ -105,7 +105,7 @@ local function Record(item, mats)
     if not CanDisenchant(item) then return end -- a crate or bag opened right after the cast, not a disenchant
 
     local db = DisenchantValueDB
-    local char = UnitName("player") .. "-" .. (GetNormalizedRealmName() or GetRealmName() or "?")
+    local char, realmID = DV.CharLabel()
 
     local entry = db.items[item.itemID]
     if not entry then
@@ -127,7 +127,7 @@ local function Record(item, mats)
     end
 
     DV.Changed()
-    table.insert(db.log, { t = time(), char = char, itemID = item.itemID, link = item.link, ilvl = item.ilvl, mats = mats })
+    table.insert(db.log, { t = time(), char = char, realmID = realmID, itemID = item.itemID, link = item.link, ilvl = item.ilvl, mats = mats })
     DV.TrimLog()
 
     if db.announce == true then Announce(item.link, mats) end
@@ -215,6 +215,28 @@ function DV.ObservedFor(itemID, classID, quality, low, high)
     return mine.count > 0 and mine or nil, bracket.count > 0 and bracket or nil
 end
 
+-- "Name-Realm" for the log, and the realm ID. The realm's name is the game's (saved for its ID in db.realmNames), else,
+-- since the WoW Forever client update of 2026-11-21 (build 71037: GetRealmName() and GetNormalizedRealmName() return
+-- ""), the name saved for the realm ID from the GUID, else "realm:6946" (Realm.lua); never "Name-".
+function DV.CharLabel()
+    local db = DisenchantValueDB
+    local names = db and db.realmNames
+    local norm = DV.Realm.text(GetNormalizedRealmName and GetNormalizedRealmName())
+    local key, _, id = DV.Realm.read(names)
+    local name = DV.Realm.text(UnitName("player")) or "?"
+    return name .. "-" .. ((norm or key or "?"):gsub("%s", "")), id
+end
+
+-- Disenchants logged as "Name-" (older versions on build 71037). Which realm they were on can't be told, so they stay
+-- as they are; /dv status counts them.
+function DV.NamelessLogged()
+    local n = 0
+    for _, e in ipairs(DisenchantValueDB and DisenchantValueDB.log or {}) do
+        if type(e.char) == "string" and e.char:sub(-1) == "-" then n = n + 1 end
+    end
+    return n
+end
+
 -- Goes up whenever the logged results change, so tooltips can keep their sums until then.
 DV.generation = 0
 function DV.Changed() DV.generation = DV.generation + 1 end
@@ -237,6 +259,7 @@ function DV.InitDB()
     db.version = 2
     db.items = db.items or {}
     db.log = db.log or {}
+    if type(db.realmNames) ~= "table" then db.realmNames = {} end
     for k, v in pairs(DV.DEFAULTS) do
         if db[k] == nil then db[k] = v end
     end

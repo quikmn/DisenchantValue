@@ -76,7 +76,12 @@ end
 
 -- /dv status: the version, the totals and where prices come from (/dv summary still works).
 app:StatusLines(function()
-    return { Summary(), "Prices: " .. PriceStatus() }
+    local out = { Summary(), "Prices: " .. PriceStatus() }
+    local nameless = DV.NamelessLogged()
+    if nameless > 0 then
+        out[#out + 1] = nameless .. " disenchants were logged without the realm (the game didn't say it); they are kept as they are."
+    end
+    return out
 end)
 app:Command("summary", "summary", "how much is logged", function()
     app:Print(Summary())

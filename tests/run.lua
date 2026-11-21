@@ -394,6 +394,30 @@ step("the log cap set in the open window trims on close, not while dragging", fu
 	def.set(10000)
 end)
 
+step("log label on client build 71037: realm names \"\", realm ID 0; the realm ID from the GUID, never \"Name-\"", function()
+	local DV = DisenchantValue
+	local norm, name, id = GetNormalizedRealmName, GetRealmName, GetRealmID
+	local db = DisenchantValueDB
+	db.realmNames = {}
+	local label, rid = DV.CharLabel()
+	assert(label:match("%-MockRealm$"), "usual label changed: " .. label)
+	assert(db.realmNames[1] == "Mock Realm", "name not saved for the realm ID")
+	GetNormalizedRealmName = function() return "" end
+	GetRealmName = function() return "" end
+	GetRealmID = function() return 0 end
+	label, rid = DV.CharLabel()
+	assert(label:match("%-MockRealm$") and rid == 1, "saved name for the GUID's realm ID not used: " .. label)
+	db.realmNames = {}
+	label = DV.CharLabel()
+	assert(label:match("%-realm:1$"), "ID-only label expected: " .. label)
+	local savedLog = db.log
+	db.log = { { t = 1, char = "Miy-", itemID = 1, mats = {} }, { t = 2, char = "Miy-MockRealm", itemID = 1, mats = {} } }
+	assert(DV.NamelessLogged() == 1, "nameless entries not counted")
+	assert(db.log[1].char == "Miy-", "a nameless entry was changed")
+	db.log = savedLog
+	GetNormalizedRealmName, GetRealmName, GetRealmID = norm, name, id
+end)
+
 step("no Lua errors reported", function()
 	check(#MOCK.errors == 0, table.concat(MOCK.errors, "\n"))
 end)

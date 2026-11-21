@@ -12,6 +12,7 @@ Libs\LibStub\LibStub.lua
 Libs\EverlookUI\EverlookUI.lua
 Libs\EverlookUI\EverlookTooltip.lua
 Namespace.lua
+Realm.lua
 Data\DisenchantingMaterials.lua
 Data\DisenchantingMaterialMapping.lua
 Data\DisenchantingItemNames.lua
