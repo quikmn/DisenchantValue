@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: DisenchantValue
-## Notes: Shows the estimated auction value of what an item disenchants into, on its tooltip. Odds from classic-db, prices from EverlookDB Auctions or Auctionator scans.
+## Notes: Shows what an item's disenchant is worth on its tooltip, and logs your own disenchants. /dv
 ## Author: quikmn
 ## Version: 0.2.1
 ## OptionalDeps: Auctionator, EverlookDBAuctions

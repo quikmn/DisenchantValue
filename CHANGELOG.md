@@ -1,23 +1,18 @@
 # Changelog
 
 ## Unreleased
-- Tooltip: the same tidy look as the other EverlookDB addons: brighter labels, prices on the right with their coins lined up; the material breakdown says "each" beside the name, not after the price.
+- Tooltip: the same tidy look as the other EverlookDB addons, with prices lined up on the right.
 - New setting "Solid tooltip background" (on by default), shared by every EverlookDB addon.
 
 ## v0.2.1 (2026-11-21)
-- Your disenchant log names the character's realm again after today's WoW Forever client update, which stopped telling addons the realm's name (entries read "Name-" since then). Those entries are kept as they are, and /dv status counts them.
+- Your disenchant log names the character's realm again after today's WoW Forever client update.
 
 ## v0.2.0 (2026-11-20)
-- Settings window: switches, buttons and sliders use a softer shade of the accent colour, an on switch has a dark knob so it stands out, and boxes have cleaner rounded edges.
-
-- Only one "Disenchant" line on tooltips: when EverlookDB Auctions shows its own, DisenchantValue no longer adds a second one with a different price. The breakdown (Shift) and your own results still show, right under it.
-- Auctionator is no longer required. Prices come from EverlookDB Auctions' scans first, then Auctionator's; either one is enough.
-- The chat line after each disenchant is now off by default (and switched off once for everyone who had it from v0.1.0). Turn it back on with `/dv announce on` or in the window.
-- The chat line after a disenchant now names every material ("2x Strange Dust") instead of "item 10940" when the game hadn't loaded it yet.
-- Disenchanting an item the game hadn't loaded yet now logs its type and quality too, so it counts for its item-level bracket on tooltips.
-- Fixed: opening a crate or bag right after a disenchant could log it as a disenchant. Such entries are removed from your log.
-- Without any auction prices, the "no prices, scan the auction house" hint now shows on one item per session instead of on every green item.
-- Item tooltips do less work: your own results are added up once per item instead of on every tooltip refresh.
+- Only one "Disenchant" line on tooltips when EverlookDB Auctions shows its own; your breakdown and results go under it.
+- Auctionator is no longer required: prices come from EverlookDB Auctions or Auctionator, either one is enough.
+- The chat line after each disenchant is now off by default (`/dv announce on` brings it back) and names every material.
+- Fixed: opening a crate or bag right after a disenchant could be logged as a disenchant.
+- Softer settings window colours, a one-time "scan the auction house" hint, and lighter tooltips.
 
 ## v0.1.0 (2026-11-19)
 
