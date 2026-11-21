@@ -238,8 +238,9 @@ local function AddBreakdown(t, link)
         local pct, count, matID = entry[i], entry[i + 1], entry[i + 2]
         if pct > 0 then
             local price = GetMatPrice(matID)
+            -- the price alone on the right (its coins line up with the other prices), "each" as the note
             t:Detail(("%g%%  %gx %s"):format(math.floor(pct * 100) / 100, count, MatName(matID)),
-                price and (Money(price) .. " each") or "?", { always = true })
+                price and Money(price) or "no price", { always = true, note = price and "each" or nil, stale = not price })
         end
     end
 end

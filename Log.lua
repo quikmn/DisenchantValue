@@ -167,6 +167,9 @@ f:SetScript("OnEvent", function(_, event, ...)
     if event == "ADDON_LOADED" then
         if ... ~= "DisenchantValue" then return end
         DV.InitDB()
+        -- the shared tooltip switch (solid background) as last chosen in any EverlookDB addon
+        local Tip = LibStub and LibStub("EverlookTooltip-1", true)
+        if Tip and Tip.LoadSolid then Tip:LoadSolid(DisenchantValueDB) end
     elseif event == "UNIT_SPELLCAST_SENT" then
         local _, target, _, spellID = ...
         if IsDisenchant(spellID) then

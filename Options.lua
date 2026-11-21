@@ -17,6 +17,10 @@ DV.app = app
 
 local function db() return DisenchantValueDB end
 
+-- the shared EverlookTooltip switch: an opaque tooltip background
+local Tip = LibStub("EverlookTooltip-1", true)
+if Tip and Tip.SolidSetting then Tip:SolidSetting(app, db) end
+
 app:Setting({
     key = "tooltip", type = "bool", label = "Show the disenchant value on item tooltips", keywords = { "price", "value", "worth" },
     get = function() return db().tooltip end, set = function(v) db().tooltip = v end,
@@ -139,6 +143,7 @@ app:Section("options", "Options", function(stack)
     app:Widget(stack, "tooltip")
     app:Widget(stack, "breakdown")
     app:Widget(stack, "observed")
+    if app:GetSetting("tipsolid") then app:Widget(stack, "tipsolid") end
     app:Widget(stack, "essencecap")
     UI.Header(stack, "Log")
     app:Widget(stack, "announce")

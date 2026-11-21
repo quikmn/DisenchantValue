@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+- Tooltip: the same tidy look as the other EverlookDB addons: brighter labels, prices on the right with their coins lined up; the material breakdown says "each" beside the name, not after the price.
+- New setting "Solid tooltip background" (on by default), shared by every EverlookDB addon.
+
 ## v0.2.1 (2026-11-21)
 - Your disenchant log names the character's realm again after today's WoW Forever client update, which stopped telling addons the realm's name (entries read "Name-" since then). Those entries are kept as they are, and /dv status counts them.
 
