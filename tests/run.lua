@@ -418,6 +418,33 @@ step("log label on client build 71037: realm names \"\", realm ID 0; the realm I
 	GetNormalizedRealmName, GetRealmName, GetRealmID = norm, name, id
 end)
 
+step("with EverlookDB Auctions 5 loaded: nothing but the saved log, and one line once", function()
+	local keepDV, keepData, keepDB = DisenchantValue, DisenchantValueData, DisenchantValueDB
+	EverlookDBAuctionsAPI = { version = 5 }
+	DisenchantValueDB = { log = { { t = 1, itemID = 1, mats = {} } }, items = {} }
+	local env = setmetatable({}, { __index = _G, __newindex = function(_, k, v) _G[k] = v end })
+	local slashBefore = SLASH_DISENCHANTVALUE1
+	SLASH_DISENCHANTVALUE1 = nil
+	for _, file in ipairs({ "Namespace.lua", "Realm.lua", "Log.lua", "DisenchantValue.lua", "Options.lua" }) do
+		local chunk = assert(loadfile(ROOT .. "/" .. file))
+		setfenv(chunk, env)
+		chunk(ADDON, {})
+	end
+	check(DisenchantValue.merged == true, "not merged")
+	check(DisenchantValue.ObservedFor == nil and DisenchantValue.app == nil, "the addon still set itself up")
+	check(SLASH_DISENCHANTVALUE1 == nil, "/dv registered")
+	local printed = {}
+	local keepPrint = print
+	print = function(m) printed[#printed + 1] = m end
+	MOCK.Fire("PLAYER_LOGIN")
+	MOCK.Fire("PLAYER_LOGIN")
+	print = keepPrint
+	check(#printed == 1 and printed[1]:find("now part of EverlookDB Auctions: /dv still works", 1, true), "the line: " .. table.concat(printed, " | "))
+	check(#DisenchantValueDB.log == 1 and DisenchantValueDB.movedNotice == true, "the saved log was changed")
+	DisenchantValue, DisenchantValueData, DisenchantValueDB = keepDV, keepData, keepDB
+	EverlookDBAuctionsAPI, SLASH_DISENCHANTVALUE1 = nil, slashBefore
+end)
+
 step("no Lua errors reported", function()
 	check(#MOCK.errors == 0, table.concat(MOCK.errors, "\n"))
 end)

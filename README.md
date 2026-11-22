@@ -1,5 +1,7 @@
 # DisenchantValue
 
+**DisenchantValue is now part of [EverlookDB Auctions](https://www.curseforge.com/wow/addons/everlookdbauctions).** Everything it did is there: the disenchant value on tooltips, your own results, the log of every disenchant (your old log comes along) and `/dv`. With EverlookDB Auctions installed, this addon steps aside by itself, so you can remove it. Without it, it keeps working as below.
+
 WoW Forever (interface 16001). Prices come from EverlookDB Auctions or Auctionator (either one; both are optional).
 
 - Item tooltips show the estimated auction value of disenchanting the item, from Classic disenchant odds and your auction prices. Hold Shift for the breakdown. Works alongside EverlookDB Auctions: only one "Disenchant" line is shown.

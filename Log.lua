@@ -1,3 +1,4 @@
+if DisenchantValue.merged then return end -- EverlookDB Auctions does this now (Namespace.lua)
 -- Records every disenchant on every character into one account-wide DB (DisenchantValueDB).
 --
 -- DisenchantValueDB = {

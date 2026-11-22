@@ -1,3 +1,4 @@
+if DisenchantValue.merged then return end -- EverlookDB Auctions does this now (Namespace.lua)
 -- DisenchantValue: "Disenchant: ~Xg" on item tooltips, using Classic disenchant odds (classic-db) and Auctionator prices.
 -- Hold Shift to see the possible results and their odds.
 

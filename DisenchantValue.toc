@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: DisenchantValue
-## Notes: Shows what an item's disenchant is worth on its tooltip, and logs your own disenchants. /dv
+## Notes: Now part of EverlookDB Auctions. Without it: what an item's disenchant is worth on its tooltip, and a log of your disenchants. /dv
 ## Author: quikmn
-## Version: 0.2.1
+## Version: 0.3.0
 ## OptionalDeps: Auctionator, EverlookDBAuctions
 ## SavedVariables: DisenchantValueDB
 ## X-License: GPL-3.0

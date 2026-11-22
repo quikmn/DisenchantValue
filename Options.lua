@@ -1,3 +1,4 @@
+if DisenchantValue.merged then return end -- EverlookDB Auctions does this now (Namespace.lua)
 -- DisenchantValue: settings window (/dv), chat commands and the Settings > AddOns entry, on EverlookUI.
 local ADDON = ...
 local DV = DisenchantValue

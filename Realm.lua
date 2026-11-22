@@ -1,3 +1,4 @@
+if DisenchantValue.merged then return end -- EverlookDB Auctions does this now (Namespace.lua)
 -- Which realm you are on. The same small helper sits in each EverlookDB addon (they don't depend on each other).
 --
 -- Since the WoW Forever client update of 2026-11-21 (1.60.1, build 71037) GetRealmName() and GetNormalizedRealmName()
