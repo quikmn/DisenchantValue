@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.0 (2026-11-22)
 - DisenchantValue is now part of EverlookDB Auctions: with it installed, everything happens there (your log comes along, `/dv` still works) and this addon steps aside. Without it, nothing changes.
 - Tooltip: the same tidy look as the other EverlookDB addons, with prices lined up on the right.
 - New setting "Solid tooltip background" (on by default), shared by every EverlookDB addon.
